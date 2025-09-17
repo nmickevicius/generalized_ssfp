@@ -59,61 +59,61 @@
           --ellipse:#666666; --dot:#ff7a00; }
 </style>
 
-<!-- Mobile-only polish: keeps desktop unchanged -->
+<!-- Mobile-only layout fixes: keep desktop unchanged -->
 <style>
-/* ===== Mobile polish (safe: only affects small screens) ===== */
 @media (max-width: 700px) {
-  :root {
-    --radius: 14px;
-  }
-
-  body { -webkit-tap-highlight-color: transparent; }
-
-  header { padding: 16px 12px 6px; }
-  .title { font-size: clamp(20px, 6vw, 28px); }
-  .subtitle { font-size: 13px; }
-
-  /* Layout stack is already 1-col at 1100px; tighten spacing on phones */
-  .wrap { gap: 12px; padding: 10px; }
-
-  .card { border-radius: var(--radius); }
-
-  /* Controls: friendlier touch targets + shorter sticky area */
+  /* Make sure nothing blocks scrolling past the controls */
+  html, body { height: auto; overflow: auto; }
+  
+  /* Turn off sticky panel on phones so content isn't trapped underneath */
   .controls {
-    position: sticky;
-    top: 8px;
-    max-height: 68vh;            /* avoid covering the whole screen */
-    padding-bottom: 8px;
-    overscroll-behavior: contain;
-  }
-  .controls label { font-size: 12px; margin: 10px 0 6px; }
-  .controls input[type="range"] { height: 30px; }
-
-  /* Toggle chips: allow wrapping so they don't overflow */
-  .switch {
-    padding: 7px 12px;
-    margin: 6px 6px 0 0;
-    flex-wrap: wrap;
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none;
   }
 
-  /* Make long equations scroll instead of overflowing */
-  .equations { font-size: 13px; }
-  .equations, .equations code { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Provide some breathing room */
+  .wrap { gap: 12px; padding: 10px; }
+  header { padding-bottom: 6px; }
 
-  /* Plot heights: smaller on phones.
-     plot2/plotEllipse may have inline heights in the HTML; override with !important. */
-  .plot   { height: 300px; }
-  .plotRF { height: 220px; }
-  #plot2, #plotEllipse { height: 360px !important; }
+  /* Expander styling (created by JS) */
+  details.mobile-controls {
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.02);
+    padding: 8px 10px;
+  }
+  details.mobile-controls > summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 6px 4px;
+    user-select: none;
+  }
+  details.mobile-controls > summary::-webkit-details-marker { display: none; }
+  details.mobile-controls[open] { background: rgba(0,0,0,0.03); }
 
-  /* Spectrum+ellipse grid becomes vertical with tighter gap (already 1-col at 1100px) */
+  /* Make long equations and code horizontally scrollable */
+  .equations, .equations code, pre, code {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reasonable default chart heights on phones */
+  .plot   { height: 300px !important; min-height: 240px; }
+  .plotRF { height: 220px !important; min-height: 200px; }
+  #plot2, #plotEllipse { height: 360px !important; min-height: 260px; }
+
+  /* Tighten grid gaps if any */
   .grid-spectrum-ellipse { gap: 10px; }
 }
 
-/* Extra-narrow phones */
+/* Extra narrow */
 @media (max-width: 380px) {
-  .plot   { height: 260px; }
-  .plotRF { height: 200px; }
+  .plot   { height: 260px !important; }
+  .plotRF { height: 200px !important; }
   #plot2, #plotEllipse { height: 300px !important; }
 }
 </style>
@@ -706,27 +706,79 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 });
 </script>
 
-<!-- Reflow charts on resize/orientation for crisper mobile layout -->
+<!-- Mobile controls expander + Plotly reflow. Desktop unaffected. -->
 <script>
 (function() {
+  function isPhone() { return window.matchMedia('(max-width: 700px)').matches; }
+
+  function wrapControlsForMobile() {
+    if (!isPhone()) return;
+    var controls = document.querySelector('.controls');
+    if (!controls) return;
+    // Already wrapped?
+    if (controls.parentElement && controls.parentElement.tagName.toLowerCase() === 'details') return;
+
+    var details = document.createElement('details');
+    details.className = 'mobile-controls';
+    // Start collapsed so users see charts immediately
+    details.open = false;
+
+    var summary = document.createElement('summary');
+    summary.textContent = 'Parameters';
+    details.appendChild(summary);
+
+    // Move controls inside details
+    controls.parentNode.insertBefore(details, controls);
+    details.appendChild(controls);
+  }
+
+  function unwrapControlsForDesktop() {
+    if (isPhone()) return;
+    var details = document.querySelector('details.mobile-controls');
+    if (!details) return;
+    var controls = details.querySelector('.controls');
+    if (controls) {
+      details.parentNode.insertBefore(controls, details);
+    }
+    details.remove();
+  }
+
+  // Plotly resize helper for crisp charts after layout changes
   var ids = ['plotRF','plot1','plot2','plotEllipse'];
-  var plots = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
-  var resizeTO;
-  function doResize(){
+  var plots = [];
+  function collectPlots() {
+    plots = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  }
+  function reflowPlots() {
     if (window.Plotly && plots.length) {
       plots.forEach(function(p){ try { Plotly.Plots.resize(p); } catch(e){} });
     }
   }
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTO);
-    resizeTO = setTimeout(doResize, 120);
-  });
-  // Also trigger on DOM ready for initial mobile layout
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(doResize, 50);
-  } else {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(doResize, 50); });
+
+  function onReady(fn){
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(fn, 0);
+    } else {
+      document.addEventListener('DOMContentLoaded', fn);
+    }
   }
+
+  onReady(function(){
+    wrapControlsForMobile();
+    collectPlots();
+    setTimeout(reflowPlots, 50);
+  });
+
+  var resizeTO;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTO);
+    resizeTO = setTimeout(function(){
+      if (isPhone()) { wrapControlsForMobile(); }
+      else { unwrapControlsForDesktop(); }
+      collectPlots();
+      reflowPlots();
+    }, 120);
+  });
 })();
 </script>
 

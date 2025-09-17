@@ -1,12 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+\1
+<style>
+
+/* --- Force Plotly text (axis titles, ticks, legend) to pure white --- */
+.js-plotly-plot text,
+.js-plotly-plot .legend text,
+.js-plotly-plot .g-legend text,
+.js-plotly-plot .g-xtitle text,
+.js-plotly-plot .g-ytitle text,
+.js-plotly-plot .xtick text,
+.js-plotly-plot .ytick text,
+.js-plotly-plot .legendtext {
+  fill: #ffffff !important;
+}
+/* Some builds set stroke on text; neutralize it */
+.js-plotly-plot text { stroke: none !important; }
+
+</style>
+
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>bSSFP Explorer — Sticky Controls (M0 fixed, Phase default)</title>
-<!-- Local-first Plotly; put plotly.min.js next to this file for offline use -->
+<title>Two-Pool SSFP Explorer</title>
 <script src="plotly.min.js"></script>
-<!-- MathJax (deferred) -->
 <script>
   window.MathJax = {
     tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'], ['\\[','\\]']], processEscapes: true },
@@ -20,7 +36,7 @@
   header{padding:20px 16px 8px;text-align:center;}
   .title{font-weight:800;font-size:clamp(22px,3.5vw,36px);}
   .subtitle{color:var(--muted); font-size:14px; margin-top:6px;}
-  .wrap{display:grid;gap:16px;grid-template-columns:320px 1fr;padding:14px;}
+  .wrap{display:grid;gap:16px;grid-template-columns:340px 1fr;padding:14px;}
   @media(max-width:1100px){.wrap{grid-template-columns:1fr;}}
   .card{background:var(--panel);border-radius:var(--radius);border:1px solid rgba(255,255,255,.06);}
   .pad{padding:14px 14px 10px;}
@@ -28,34 +44,85 @@
   .hr{height:1px;background:rgba(255,255,255,.08);margin:10px 0;border:none;}
   .controls label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
   .controls input[type="range"]{width:100%;}
-  .controls input[type="number"]{width:120px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:#141414;color:#fff;}
   .switch{display:inline-flex;align-items:center;gap:6px;background:#141414;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);font-size:12px;margin-right:8px;}
   .plot{height:420px;} .plotRF{height:300px;}
-  .grid-heat-ellipse{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;align-items:stretch;}
-  @media(max-width:1100px){.grid-heat-ellipse{grid-template-columns:1fr;}}
+  .grid-spectrum-ellipse{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;align-items:stretch;}
+  @media(max-width:1100px){.grid-spectrum-ellipse{grid-template-columns:1fr;}}
   .kbd{font-family:ui-monospace,Menlo,Consolas,monospace;color:#a0f0b3;}
   .msg{font-size:12px;color:var(--muted);margin-top:6px;}
   .warn{background:rgba(255,204,102,.1);border:1px solid rgba(255,204,102,.35);color:#ffdca3;padding:8px 12px;margin:8px 14px;border-radius:12px;display:none}
-
-  /* Sticky controls while scrolling */
-  .controls {
-    position: sticky;
-    top: 12px;
-    align-self: start;
-    max-height: calc(100vh - 24px);
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Subtle gray grids */
+  .equations{font-size:14px; line-height:1.5}
+  .equations code{font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .note{color:var(--muted); font-size:12px; margin-top:6px}
+  .controls { position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 24px); overflow: auto; -webkit-overflow-scrolling: touch; }
   :root { --grid: rgba(170,170,170,0.28); --zero: rgba(170,170,170,0.45);
           --ellipse:#666666; --dot:#ff7a00; }
 </style>
+
+<!-- Mobile-only polish: keeps desktop unchanged -->
+<style>
+/* ===== Mobile polish (safe: only affects small screens) ===== */
+@media (max-width: 700px) {
+  :root {
+    --radius: 14px;
+  }
+
+  body { -webkit-tap-highlight-color: transparent; }
+
+  header { padding: 16px 12px 6px; }
+  .title { font-size: clamp(20px, 6vw, 28px); }
+  .subtitle { font-size: 13px; }
+
+  /* Layout stack is already 1-col at 1100px; tighten spacing on phones */
+  .wrap { gap: 12px; padding: 10px; }
+
+  .card { border-radius: var(--radius); }
+
+  /* Controls: friendlier touch targets + shorter sticky area */
+  .controls {
+    position: sticky;
+    top: 8px;
+    max-height: 68vh;            /* avoid covering the whole screen */
+    padding-bottom: 8px;
+    overscroll-behavior: contain;
+  }
+  .controls label { font-size: 12px; margin: 10px 0 6px; }
+  .controls input[type="range"] { height: 30px; }
+
+  /* Toggle chips: allow wrapping so they don't overflow */
+  .switch {
+    padding: 7px 12px;
+    margin: 6px 6px 0 0;
+    flex-wrap: wrap;
+  }
+
+  /* Make long equations scroll instead of overflowing */
+  .equations { font-size: 13px; }
+  .equations, .equations code { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Plot heights: smaller on phones.
+     plot2/plotEllipse may have inline heights in the HTML; override with !important. */
+  .plot   { height: 300px; }
+  .plotRF { height: 220px; }
+  #plot2, #plotEllipse { height: 360px !important; }
+
+  /* Spectrum+ellipse grid becomes vertical with tighter gap (already 1-col at 1100px) */
+  .grid-spectrum-ellipse { gap: 10px; }
+}
+
+/* Extra-narrow phones */
+@media (max-width: 380px) {
+  .plot   { height: 260px; }
+  .plotRF { height: 200px; }
+  #plot2, #plotEllipse { height: 300px !important; }
+}
+</style>
+
 </head>
 <body>
 <header>
-  <div class="title">Balanced SSFP (bSSFP) — Explorer</div>
-  <div class="subtitle">\( \alpha = \gamma B_1 \tau,\; \gamma = 2\pi \cdot 42.58\times 10^6\ \mathrm{rad/s/T} \). RF \(B_1(t)\) shown in μT. Here \(M_0\) is fixed to 1.</div>
+  <div class="title">Analytical Two-Pool SSFP</div>
+  <div class="subtitle">Explore the coherent signal and its DFT components.</div>
 </header>
 
 <div id="warn" class="warn"></div>
@@ -76,13 +143,25 @@
     <input type="range" id="tauRF" min="0.05" max="3.8" step="0.01" value="0.50" />
     <div><span class="kbd" id="tauRFDisplay">0.50 ms</span></div>
 
-    <label>T<sub>1</sub> (ms)</label>
-    <input type="range" id="T1" min="100" max="3000" step="10" value="1000" />
-    <div><span class="kbd" id="T1Display">1000 ms</span></div>
+    <label>T<sub>1,f</sub> (ms)</label>
+    <input type="range" id="T1f" min="100" max="3000" step="10" value="1000" />
+    <div><span class="kbd" id="T1fDisplay">1000 ms</span></div>
+
+    <label>T<sub>1,r</sub> (ms)</label>
+    <input type="range" id="T1r" min="100" max="3000" step="10" value="1200" />
+    <div><span class="kbd" id="T1rDisplay">1200 ms</span></div>
 
     <label>T<sub>2</sub> (ms)</label>
     <input type="range" id="T2" min="10" max="300" step="1" value="80" />
     <div><span class="kbd" id="T2Display">80 ms</span></div>
+
+    <label>Pool fraction F</label>
+    <input type="range" id="F" min="0.001" max="0.5" step="0.001" value="0.10" />
+    <div><span class="kbd" id="FDisplay">0.100</span></div>
+
+    <label>k<sub>f</sub> (ms<sup>-1</sup>)</label>
+    <input type="range" id="kf" min="0.0001" max="0.01" step="0.0001" value="0.0010" />
+    <div><span class="kbd" id="kfDisplay">0.0010 ms⁻¹</span></div>
 
     <label>RF phase increment φ (deg)</label>
     <input type="range" id="phi" min="0" max="360" step="1" value="180" />
@@ -94,29 +173,95 @@
 
     <div class="hr"></div>
     <div class="section-title">Display</div>
-    <label class="switch"><input type="checkbox" id="showMag" checked /> |m|</label>
+    <label class="switch"><input type="checkbox" id="showMag" checked /> |m⁺|</label>
     <label class="switch"><input type="checkbox" id="showReal" /> Re</label>
     <label class="switch"><input type="checkbox" id="showImag" /> Im</label>
     <label class="switch"><input type="checkbox" id="showPhase" checked /> Phase</label>
   </div>
 
   <div class="card pad">
-    <div class="section-title">RF waveform: \(B_1(t)\) — three TRs (μT)</div>
+    <div class="section-title">Two-Pool SSFP Signal</div>
+    <div class="equations">
+      The general form for the steady-state magnetization immediately after an RF pulse in coherent (i.e., balanced) SSFP sequences is given by:
+      $$
+      m^+ = A\,\frac{1 - E_2 e^{i\varphi}}{B\cos\varphi + C}
+      $$
+
+      Noting that $m^+$ above is a periodic function of $\varphi$, it can be reprented as a Fourier series: 
+      $$
+      m^+ = \sum_{k=-\infty}^{+\infty} S_{k} e^{i k \varphi}
+      $$
+      where $S_k$ are the individual "components", "modes", or "configurations" of the SSFP signal. For example, the $k=0$ mode corresponds to the free induction decay signal (SSFP-FID) and the $k=-1$ mode corresponds to the SSFP-Echo signal. The general form for the the SSFP components is given by: 
+      $$
+      \begin{aligned}
+      S_0 &= \frac{A}{C}\left(u_0 - E_2 u_1 \right)\\
+      S_{-1} &= \frac{A}{C}\left(u_0 E_2 - u_1 \right)\\
+      S_k &= \begin{cases}
+        \left(\frac{u_1}{u_0}\right)^k S_0 \quad \quad &k \geq 0\\
+        \left(\frac{u_1}{u_0}\right)^{|k|-1} S_{-1} \quad \quad &k < 0
+    \end{cases}
+      \end{aligned}
+      $$
+      with 
+      $$
+      \begin{aligned}
+      u_0 &= \frac{C}{\sqrt{C^2 - B^2}}\\
+      u_1 &= \frac{C}{B}(1 - u_0)
+      \end{aligned}
+      $$
+
+
+      As derived in the article for two-pool systems with magnetization transfer, the coefficients $A$, $B$, and $C$ are given by the following: 
+      $$
+      A=\beta_5\sin\alpha,\quad B=\beta_3,\quad C=\beta_4 
+      $$
+
+      where
+      $$
+      \begin{aligned}
+      \beta_1 &= 1 + F - f_w E_{1,r} (F + f_k),\\
+      \beta_2 &= 1 + f_k\!\left(F - f_w E_{1,r}(F+1)\right),\\
+      \beta_3 &= E_{2}\left(\beta_2 E_{1,f} - \beta_1\right)\left(1 + \cos \alpha\right),\\
+      \beta_4 &= \beta_1 - \beta_2 E_{1,f}\cos \alpha - \left(\beta_2 E_{1,f} - \beta_1 \cos \alpha\right)E_{2}^2,\\
+      \beta_5 &= M_{0,f}\,\beta_2\left(1 - E_{1,f}\right) + M_{0,r}\left(1 - E_{1,r}\right)\left(1 - f_k\right)
+      \end{aligned}
+      $$
+
+      Magnetization transfer systems are parameterized by the free pool $T_2$ relaxation rate, free pool $T_{1,f}$ relaxation rate, the restricted pool $T_{1,r}$ relaxation rate, the restricted pool size $F := M_{0,r}/M_{0,f}$, the exchange rate from and to the free pool $k_f$ and $k_r$, and the off-resonance value $\Delta f$. The interaction between these tissue parameters and the SSFP acquisition parameters such as the flip angle $\alpha$, repetition time $TR$, restricted pool saturation rate from the excitation pulse $\langle W(\Delta\rightarrow0)\rangle$, RF pulse duration $\tau_{RF}$, and the linear shot-to-shot RF phase increment $\phi$. The following definitions were used in the above expressions: 
+
+      $$
+      \begin{aligned}
+      E_2 &= e^{-TR/T_2} \\
+      E_{1,f} &= e^{-TR/T_{1,f}}\\
+      E_{1,r} &= e^{-TR/T_{1,r}}\\
+      \varphi &= 2\pi \Delta f \cdot TR \\
+      f_k &= e^{-(k_r + k_f)\cdot TR}\\
+      f_w &= e^{\langle W(\Delta\rightarrow0)\rangle \cdot \tau_{RF}}
+      \end{aligned}
+      $$
+
+      <!-- <div class="note">We take \(\\varphi = \\phi - 2\\pi f\\,TR\\). The DFT below is computed from \(m^+(\\varphi)\\) sampled at 128 evenly spaced RF phases with \(f=0\\).</div> -->
+    </div>
+    <div class="hr"></div>
+
+    <div class="section-title">RF Pulses for Three TR Periods </div>
     <div id="plotRF" class="plotRF"></div>
     <div class="hr"></div>
 
-    <div class="section-title">Lineshape vs off-resonance</div>
-    <div id="plot1" class="plot"></div>
+
     <div class="hr"></div>
 
-    <div class="section-title">Parameter sweep & complex-plane ellipse</div>
-    <div class="grid-heat-ellipse">
+    <div class="section-title">$m^+$ Off-Resonance Profile</div>
+    <div id="plot1" class="plot"></div>
+
+    <div class="section-title">DFT of $m^+$ & complex-plane ellipse</div>
+    <div class="grid-spectrum-ellipse">
       <div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">|m| vs f and α (heatmap)</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">Magnitude of DFT of $m^+$ across 128 $\phi$ values (zoomed to k∈[-5,5])</div>
         <div id="plot2" class="plot" style="height:460px;"></div>
       </div>
       <div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">Ellipse of steady-state \(m\) (varying RF phase)</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">Ellipse of steady-state $m^+$ (varying RF phase $\phi$)</div>
         <div id="plotEllipse" class="plot" style="height:460px;"></div>
         <div id="ellipseMsg" class="msg"></div>
       </div>
@@ -146,74 +291,127 @@ const ELLIPSE = getComputedStyle(document.documentElement).getPropertyValue('--e
 const DOT = getComputedStyle(document.documentElement).getPropertyValue('--dot') || '#ff7a00';
 
 const rad = d => d * Math.PI / 180;
-function computeParams(TRms, T1ms, T2ms, alphaDeg, M0){
-  const TR = TRms/1000, T1 = T1ms/1000, T2 = T2ms/1000;
-  const TE = TR/2, E1 = Math.exp(-TR/T1), E2 = Math.exp(-TR/T2);
-  const a = rad(alphaDeg), c = Math.cos(a), s = Math.sin(a);
-  const D0 = 1 - E1*E2*E2 + (E2*E2 - E1)*c;
-  const q = ((1 - E1)*E2*(1 + c)) / D0;
-  const K = (M0*(1 - E1)*s) / D0 * Math.exp(-TE/T2);
-  return {TR,T1,T2,TE,E1,E2,a,c,s,D0,q,K};
+
+// ----- Two-pool parameters (convert ms and ms^-1 to SI) -----
+function computeParams2(TRms, T1f_ms, T1r_ms, T2_ms, alphaDeg, F, kf_per_ms, tauRF_ms){
+  const TR = TRms/1000;
+  const T1f = T1f_ms/1000, T1r = T1r_ms/1000, T2 = T2_ms/1000;
+  const a = rad(alphaDeg);
+  const E1f = Math.exp(-TR/Math.max(T1f,1e-12));
+  const E1r = Math.exp(-TR/Math.max(T1r,1e-12));
+  const E2  = Math.exp(-TR/Math.max(T2,1e-12));
+  const kf_s = kf_per_ms*1000.0;             // ms^-1 -> s^-1
+  const kr_s = kf_s/Math.max(F,1e-12);       // s^-1
+  const fk   = Math.exp(-(kr_s + kf_s)*TR);
+  const G0   = 15.1e-6;
+  const tauRF = Math.max(tauRF_ms/1000, 1e-9);
+  const fw   = Math.exp(-(Math.PI * a*a * G0) / tauRF);
+  return {TR, T1f, T1r, T2, a, E1f, E1r, E2, F, kf_s, kr_s, fk, fw};
 }
 
-function computeSSFP(freqs, phiDeg, p){
-  const {TR,TE,E2,q,K} = p;
+// m⁺ from provided formula; ϕ = φ - 2π f TR
+function compute_mplus(freqs, phiDeg, p){
   const phi = rad(phiDeg);
+  const {TR, E1f, E1r, E2, a, F, fk, fw} = p;
+  const M0f = 1.0, M0r = F;
+  const c = Math.cos(a);
+
+  const beta1 = 1 + F - fw*E1r*(F + fk);
+  const beta2 = 1 + fk*(F - fw*E1r*(F+1));
+  const beta3 = E2*(beta2*E1f - beta1)*(1 + c);
+  const beta4 = beta1 - beta2*E1f*c - (beta2*E1f - beta1*c)*E2*E2;
+  const beta5 = M0f*beta2*(1 - E1f) + M0r*(1 - E1r)*(1 - fk);
+
+  const A = beta5 * Math.sin(a), B = beta3, C = beta4;
+
   const mag=[], real=[], imag=[], phs=[];
   for(let i=0;i<freqs.length;i++){
-    const f=freqs[i], theta=2*Math.PI*f*TR, delta=phi - theta;
-    const cosd=Math.cos(delta), sind=Math.sin(delta);
-    const phaseP0=(TE/TR)*theta;
-    const P0r=K*Math.cos(phaseP0), P0i=K*Math.sin(phaseP0);
-    const nr=1 - E2*cosd, ni=-E2*sind, den=1 - q*cosd;
-    const mr=(P0r*nr - P0i*ni)/den, mi=(P0r*ni + P0i*nr)/den;
+    const theta = 2*Math.PI*freqs[i]*p.TR;
+    const varphi = phi - theta;
+    const cphi = Math.cos(varphi), sphi = Math.sin(varphi);
+    const num_r = A * (1 - p.E2*cphi);
+    const num_i = A * ( - p.E2*sphi);
+    const den = B*cphi + C; // real scalar
+    const mr = num_r/den, mi = num_i/den;
     real[i]=mr; imag[i]=mi; mag[i]=Math.hypot(mr,mi); phs[i]=Math.atan2(mi,mr);
   }
   return {mag,real,imag,phs};
 }
 
-function computeM_for_phi(fHz, phiDeg, p){
-  const {TR,TE,E2,q,K} = p;
-  const theta=2*Math.PI*fHz*TR;
-  const delta=rad(phiDeg) - theta;
-  const c=Math.cos(delta), s=Math.sin(delta);
-  const phaseP0=(TE/TR)*theta;
-  const P0r=K*Math.cos(phaseP0), P0i=K*Math.sin(phaseP0);
-  const den=1 - q*c, nr=1 - E2*c, ni=-E2*s;
-  if(Math.abs(den) < 1e-12) return [NaN, NaN];
-  const mr=(P0r*nr - P0i*ni)/den, mi=(P0r*ni + P0i*nr)/den;
-  return [mr, mi];
+function computeM_for_phi(phiDeg, p){
+  // ellipse at f=0 while sweeping φ
+  const M0f = 1.0, M0r = p.F;
+  const c = Math.cos(p.a);
+
+  const beta1 = 1 + p.F - p.fw*p.E1r*(p.F + p.fk);
+  const beta2 = 1 + p.fk*(p.F - p.fw*p.E1r*(p.F+1));
+  const beta3 = p.E2*(beta2*p.E1f - beta1)*(1 + c);
+  const beta4 = beta1 - beta2*p.E1f*c - (beta2*p.E1f - beta1*c)*p.E2*p.E2;
+  const beta5 = M0f*beta2*(1 - p.E1f) + M0r*(1 - p.E1r)*(1 - p.fk);
+  const A = beta5 * Math.sin(p.a), B = beta3, C = beta4;
+
+  const varphi = rad(phiDeg);
+  const cphi = Math.cos(varphi), sphi = Math.sin(varphi);
+  const num_r = A * (1 - p.E2*cphi);
+  const num_i = A * ( - p.E2*sphi);
+  const den = B*cphi + C;
+  return [num_r/den, num_i/den];
 }
 
-function linspace(a,b,n){ const arr=new Array(n), step=(b-a)/(n-1); for(let i=0;i<n;i++) arr[i]=a + i*step; return arr; }
+// --- NEW: DFT of m+(φ) across 128 phases (f=0) ---
+function analyticSk(p){
+  // Computes S_-1 (cyan), S_0 (orange), S_+1 (pink) using provided formulas.
+  // Uses |C^2 - B^2| inside sqrt to keep u0 real for plotting; handles small |B| with epsilon.
+  const c = Math.cos(p.a);
+  const beta1 = 1 + p.F - p.fw*p.E1r*(p.F + p.fk);
+  const beta2 = 1 + p.fk*(p.F - p.fw*p.E1r*(p.F+1));
+  const B = p.E2*(beta2*p.E1f - beta1)*(1 + c);
+  const C = beta1 - beta2*p.E1f*c - (beta2*p.E1f - beta1*c)*p.E2*p.E2;
+  const A = ( (1*beta2*(1 - p.E1f)) + (p.F*(1 - p.E1r)*(1 - p.fk)) ) * Math.sin(p.a); // M0f=1, M0r=F
+  const E2 = p.E2;
 
-const els = {};
-function bindEls(){
-  // removed M0
-  ['alpha','alphaDisplay','TR','TRDisplay','tauRF','tauRFDisplay','T1','T1Display','T2','T2Display','phi','phiDisplay','fspan','fspanDisplay','showMag','showReal','showImag','showPhase']
-    .forEach(id => els[id]=document.getElementById(id));
-  ['plotRF','plot1','plot2','plotEllipse','ellipseMsg'].forEach(id => els[id]=document.getElementById(id));
-}
+  const denomAbs = Math.abs(C*C - B*B);
+  const u0 = C / Math.sqrt(denomAbs + 1e-30);
+  const u1 = (Math.abs(B) < 1e-12) ? 0 : (C / B) * (1 - u0);
 
-function clampTauRFMax(){
-  const TRms=Number(els.TR.value);
-  const maxVal=Math.max(0.05, TRms - 0.2);
-  els.tauRF.max=String(maxVal);
-  if(Number(els.tauRF.value)>maxVal) els.tauRF.value=String(maxVal.toFixed(2));
+  const S0  = (A/C) * (u0 - E2*u1);
+  const Sm1 = (A/C) * (u0*E2 - u1);
+  const Sp1 = (A/C) * (u0 - E2*u1) * (u1/u0);
+
+  // Return magnitudes for plotting against |DFT{m+}|
+  return {Sm1: Math.abs(Sm1), S0: Math.abs(S0), Sp1: Math.abs(Sp1)};
 }
-function updateDisplays(){
-  els.alphaDisplay.textContent=`${Number(els.alpha.value).toFixed(1)}°`;
-  els.TRDisplay.textContent=`${Number(els.TR.value).toFixed(1)} ms`;
-  els.tauRFDisplay.textContent=`${Number(els.tauRF.value).toFixed(2)} ms`;
-  els.T1Display.textContent=`${Number(els.T1.value)} ms`;
-  els.T2Display.textContent=`${Number(els.T2.value)} ms`;
-  els.phiDisplay.textContent=`${Number(els.phi.value)}°`;
-  els.fspanDisplay.textContent=`±${(0.5*Number(els.fspan.value)).toFixed(2)}/TR`;
+function dftSpectrum128(p){
+
+
+  const N=128;
+  const mRe=new Array(N), mIm=new Array(N);
+  for(let n=0;n<N;n++){
+    const phiDeg = n*(360/N);
+    const [re,im]=computeM_for_phi(phiDeg, p);
+    mRe[n]=re; mIm[n]=im;
+  }
+  // DFT X[k] = sum_n m[n] * exp(-i 2π k n / N), k in -64..+63
+  const Kmin=-64, Kmax=63;
+  const ks=[], mag=[];
+  for(let k=Kmin; k<=Kmax; k++){
+    let Sr=0, Si=0;
+    for(let n=0;n<N;n++){
+      const ang = 2*Math.PI*k*n/N;
+      const ca=Math.cos(ang), sa=Math.sin(ang);
+      // (re + i im) * (ca + i sa) = (re*ca - im*sa) + i(re*sa + im*ca)
+      Sr += mRe[n]*ca - mIm[n]*sa;
+      Si += mRe[n]*sa + mIm[n]*ca;
+    }
+    ks.push(k);
+    mag.push(Math.hypot(Sr,Si)/N); // normalized magnitude
+  }
+  return {ks, mag};
 }
 
 function computeRFSeries3(TRms, tauRFms, alphaDeg, phiIncDeg){
   const halfSpan=1.5*TRms, tStart=-halfSpan, tEnd=+halfSpan;
-  const N=2400, t=linspace(tStart,tEnd,N);
+  const N=2400, t=Array.from({length:N}, (_,i)=>tStart + i*(tEnd-tStart)/(N-1));
   const centers=[-TRms,0,TRms];
   const phi_n=0, phi_nm1=(phi_n - phiIncDeg)%360, phi_np1=(phi_n + phiIncDeg)%360;
   const phiList=[phi_nm1, phi_n, phi_np1];
@@ -237,27 +435,96 @@ function computeRFSeries3(TRms, tauRFms, alphaDeg, phiIncDeg){
   return {t,bx,by,centers,tStart,tEnd,amp_uT,tauRFms};
 }
 
+const els = {};
+function bindEls(){
+  ['alpha','alphaDisplay','TR','TRDisplay','tauRF','tauRFDisplay',
+   'T1f','T1fDisplay','T1r','T1rDisplay','T2','T2Display',
+   'F','FDisplay','kf','kfDisplay',
+   'phi','phiDisplay','fspan','fspanDisplay','showMag','showReal','showImag','showPhase']
+    .forEach(id => els[id]=document.getElementById(id));
+  ['plotRF','plot1','plot2','plotEllipse','ellipseMsg'].forEach(id => els[id]=document.getElementById(id));
+}
+
+function clampTauRFMax(){
+  const TRms=Number(els.TR.value);
+  const maxVal=Math.max(0.05, TRms - 0.2);
+  els.tauRF.max=String(maxVal);
+  if(Number(els.tauRF.value)>maxVal) els.tauRF.value=String(maxVal.toFixed(2));
+}
+
+function updateDisplays(){
+  els.alphaDisplay.textContent=`${Number(els.alpha.value).toFixed(1)}°`;
+  els.TRDisplay.textContent=`${Number(els.TR.value).toFixed(1)} ms`;
+  els.tauRFDisplay.textContent=`${Number(els.tauRF.value).toFixed(2)} ms`;
+  els.T1fDisplay.textContent=`${Number(els.T1f.value)} ms`;
+  els.T1rDisplay.textContent=`${Number(els.T1r.value)} ms`;
+  els.T2Display.textContent=`${Number(els.T2.value)} ms`;
+  els.FDisplay.textContent=`${Number(els.F.value).toFixed(3)}`;
+  els.kfDisplay.textContent=`${Number(els.kf.value).toFixed(4)} ms⁻¹`;
+  els.phiDisplay.textContent=`${Number(els.phi.value)}°`;
+  els.fspanDisplay.textContent=`±${(0.5*Number(els.fspan.value)).toFixed(2)}/TR`;
+}
+
 function initFigures(){
   Plotly.newPlot(els.plotRF, [], {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:60,r:20,t:12,b:45},
     xaxis:{title:'Time (ms)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-    yaxis:{title:'B1 (μT)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true});
+    yaxis:{title:'B1 (μT)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true})
+;try{Plotly.relayout(els.plotRF, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
   Plotly.newPlot(els.plot1, [], {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:60,r:60,t:10,b:45},
     xaxis:{title:'Off-resonance f (Hz)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-    yaxis:{title:'Signal', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true});
+    yaxis:{title:'Signal', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true})
+;try{Plotly.relayout(els.plot1, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
   Plotly.newPlot(els.plot2, [], {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:60,r:10,t:10,b:45},
-    xaxis:{title:'Off-resonance f (Hz)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-    yaxis:{title:'Flip angle α (deg)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true});
+    xaxis:{title:'SSFP Component Index k', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
+    yaxis:{title:'Signal Magnitude', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true})
+;try{Plotly.relayout(els.plot2, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
   Plotly.newPlot(els.plotEllipse, [], {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:50,r:20,t:10,b:45},
-    xaxis:{title:'Re{m}', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-    yaxis:{title:'Im{m}', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true});
+    xaxis:{title:'Re{m⁺}', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
+    yaxis:{title:'Im{m⁺}', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}}, {responsive:true});
 }
+
+function linspace(a,b,n){ const arr=new Array(n), step=(b-a)/(n-1); for(let i=0;i<n;i++) arr[i]=a + i*step; return arr; }
 
 function render(){
   updateDisplays(); clampTauRFMax();
-  const M0=1; // hard-coded
+
   const alpha=Number(els.alpha.value);
   const TRms=Number(els.TR.value), tauRFms=Number(els.tauRF.value);
-  const T1=Number(els.T1.value), T2=Number(els.T2.value);
+  const T1f=Number(els.T1f.value), T1r=Number(els.T1r.value), T2=Number(els.T2.value);
+  const F=Number(els.F.value), kf=Number(els.kf.value);
   const phi=Number(els.phi.value), span=Number(els.fspan.value);
 
   // RF plot
@@ -276,18 +543,18 @@ function render(){
        {type:'rect',xref:'x',yref:'paper',x0:rf.centers[2]-rf.tauRFms/2,x1:rf.centers[2]+rf.tauRFms/2,y0:0,y1:1,fillcolor:'rgba(160,255,160,.1)',line:{width:0}},
        {type:'line',xref:'x',yref:'paper',x0:0,x1:0,y0:0,y1:1,line:{dash:'dot',width:1,color:ZERO}}],
      annotations:[
-       {xref:'x',yref:'paper',x:rf.centers[0],y:1.08,text:'φₙ₋₁',showarrow:false,font:{size:12,color:'#cfd2d8'}},
-       {xref:'x',yref:'paper',x:rf.centers[1],y:1.08,text:'φₙ',showarrow:false,font:{size:12,color:'#cfd2d8'}},
-       {xref:'x',yref:'paper',x:rf.centers[2],y:1.08,text:'φₙ₊₁',showarrow:false,font:{size:12,color:'#cfd2d8'}}
+       {xref:'x',yref:'paper',x:rf.centers[0],y:1.08,text:'ϕₙ₋₁',showarrow:false,font:{size:12,color:'#cfd2d8'}},
+       {xref:'x',yref:'paper',x:rf.centers[1],y:1.08,text:'ϕₙ',showarrow:false,font:{size:12,color:'#cfd2d8'}},
+       {xref:'x',yref:'paper',x:rf.centers[2],y:1.08,text:'ϕₙ₊₁',showarrow:false,font:{size:12,color:'#cfd2d8'}}
      ]});
 
-  // Lineshape
+  // Lineshape with new m⁺
   const TRs=TRms/1000, fmax=(span/(2*TRs));
   const freqs=linspace(-fmax,fmax,1001);
-  const params=computeParams(TRms,T1,T2,alpha,M0);
-  const res=computeSSFP(freqs,phi,params);
+  const params=computeParams2(TRms,T1f,T1r,T2,alpha,F,kf,tauRFms);
+  const res=compute_mplus(freqs,phi,params);
   const traces=[];
-  if(els.showMag.checked) traces.push({x:freqs,y:res.mag,name:'|m|',type:'scatter',mode:'lines'});
+  if(els.showMag.checked) traces.push({x:freqs,y:res.mag,name:'|m⁺|',type:'scatter',mode:'lines'});
   if(els.showReal.checked) traces.push({x:freqs,y:res.real,name:'Re',type:'scatter',mode:'lines'});
   if(els.showImag.checked) traces.push({x:freqs,y:res.imag,name:'Im',type:'scatter',mode:'lines'});
   if(els.showPhase.checked) traces.push({x:freqs,y:res.phs.map(v=>v/Math.PI),name:'phase/π',type:'scatter',mode:'lines',yaxis:'y2'});
@@ -297,21 +564,55 @@ function render(){
   if(els.showPhase.checked) layout1.yaxis2={overlaying:'y',side:'right',title:'phase / π', showgrid:false, zerolinecolor:ZERO};
   Plotly.react(els.plot1, traces, layout1);
 
-  // Heat map
-  const aMax=90, nA=60;
-  const aList=linspace(0.1,aMax,nA);
-  const Z=[];
-  for(let k=0;k<aList.length;k++){ const p=computeParams(TRms,T1,T2,aList[k],M0); const r=computeSSFP(freqs,phi,p); Z.push(r.mag); }
-  Plotly.react(els.plot2, [{z:Z,x:freqs,y:aList,type:'heatmap',colorscale:'Viridis'}],
-    {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:60,r:10,t:10,b:45},
-     xaxis:{title:'Off-resonance f (Hz)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-     yaxis:{title:'Flip angle α (deg)', showgrid:true, gridcolor:GRID, zerolinecolor:ZERO}});
+  // --- NEW: Spectrum plot on the left (replacing heatmap) ---
+  const spec = dftSpectrum128(params); // f=0 inside
+  // Zoom to k in [-5,5]
+  const xs=[], ys=[];
+  for(let i=0;i<spec.ks.length;i++){
+    const k=spec.ks[i];
+    if(k>=-5 && k<=5){ xs.push(k); ys.push(spec.mag[i]); }
+  }
+  // Get magnitudes at k=-1,0,+1
+  const Sk = analyticSk(params);
+  const lineX = [-5, 5];
+  // we'll draw horizontal lines at these y values
+  const y_m1_line = [Sk.Sm1, Sk.Sm1];
+  const y_0_line  = [Sk.S0,  Sk.S0 ];
+  const y_p1_line = [Sk.Sp1, Sk.Sp1];
 
-  // Ellipse (robust)
-  const phiSweep=linspace(0.1,359.9,721);
+  function magAt(k){
+    const idx = spec.ks.indexOf(k);
+    return idx>=0 ? spec.mag[idx] : NaN;
+  }
+  const m_km1 = magAt(-1), m_k0 = magAt(0), m_kp1 = magAt(1);
+
+  Plotly.react(els.plot2,
+    [
+      {x: xs, y: ys, type:'scatter', mode:'lines', name:'|DFT{m⁺}|', line:{width:2}},
+      // analytic horizontal lines
+      {x: lineX, y: y_m1_line, type:'scatter', mode:'lines', line:{width:2}, hoverinfo:'none', name:'S_-1', marker:{color:'cyan'}},
+      {x: lineX, y: y_0_line,  type:'scatter', mode:'lines', line:{width:2}, hoverinfo:'none', name:'S_0', marker:{color:'orange'}},
+      {x: lineX, y: y_p1_line, type:'scatter', mode:'lines', line:{width:2}, hoverinfo:'none', name:'S_+1', marker:{color:'hotpink'}},
+      // sampled DFT markers
+      {x: [-1], y: [m_km1], type:'scatter', mode:'markers', marker:{size:16, color:'cyan'}, name:'k=-1'},
+      {x: [ 0], y: [m_k0 ], type:'scatter', mode:'markers', marker:{size:16, color:'orange'}, name:'k=0'},
+      {x: [ 1], y: [m_kp1], type:'scatter', mode:'markers', marker:{size:16, color:'hotpink'}, name:'k=+1'}
+    ],
+    {
+      paper_bgcolor:'rgba(0,0,0,0)',
+      plot_bgcolor:'rgba(0,0,0,0)',
+      margin:{l:60,r:10,t:10,b:45},
+      xaxis:{title:'SSFP Component Index k', range:[-5,5], dtick:1, showgrid:true, gridcolor:GRID, zeroline:true, zerolinecolor:ZERO},
+      yaxis:{title:'Signal Magnitude', showgrid:true, gridcolor:GRID, zeroline:true, zerolinecolor:ZERO},
+      showlegend:true
+    }
+  );
+
+  // Ellipse at f=0 sweeping φ
+  const phiSweep=(function(){const arr=[]; for(let d=0.1; d<360; d+=0.5) arr.push(d); return arr;})();
   const X=[], Y=[];
   for(let i=0;i<phiSweep.length;i++){
-    const pt=computeM_for_phi(0.0, phiSweep[i], params);
+    const pt=computeM_for_phi(phiSweep[i], params);
     if(Number.isFinite(pt[0]) && Number.isFinite(pt[1])){ X.push(pt[0]); Y.push(pt[1]); }
   }
   let xmin=-1, xmax=1, ymin=-1, ymax=1;
@@ -323,7 +624,7 @@ function render(){
     const xr=xmax-xmin, yr=ymax-ymin;
     const padx=(xr||1)*0.05, pady=(yr||1)*0.05;
     xmin-=padx; xmax+=padx; ymin-=pady; ymax+=pady;
-    dot=computeM_for_phi(0.0, phi, params);
+    dot=computeM_for_phi(phi, params);
     if(!Number.isFinite(dot[0]) || !Number.isFinite(dot[1])) dot=[0,0];
   } else {
     els.ellipseMsg.textContent='Ellipse not shown for this parameter set.';
@@ -331,17 +632,16 @@ function render(){
   const ELLIPSEc=getComputedStyle(document.documentElement).getPropertyValue('--ellipse') || '#666666';
   const DOTc=getComputedStyle(document.documentElement).getPropertyValue('--dot') || '#ff7a00';
   Plotly.react(els.plotEllipse,
-    [{x:X,y:Y,type:'scatter',mode:'lines',line:{width:2,color:ELLIPSEc.trim()},hoverinfo:'skip'},
-     {x:[dot[0]],y:[dot[1]],type:'scatter',mode:'markers',marker:{size:10,color:DOTc.trim()},hoverinfo:'skip'}],
+    [{x:X,y:Y,type:'scatter',mode:'lines',name:'Ellipse',line:{width:2,color:ELLIPSEc.trim()},hoverinfo:'skip'},
+     {x:[dot[0]],y:[dot[1]],type:'scatter',name:'Current', mode:'markers',marker:{size:10,color:DOTc.trim()},hoverinfo:'skip'}],
     {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{l:50,r:20,t:10,b:45},
-     xaxis:{title:'Re{m}',range:[xmin,xmax], showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-     yaxis:{title:'Im{m}',range:[ymin,ymax], showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
-     showlegend:false});
+     xaxis:{title:'Re{m⁺}',range:[xmin,xmax], showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
+     yaxis:{title:'Im{m⁺}',range:[ymin,ymax], showgrid:true, gridcolor:GRID, zerolinecolor:ZERO},
+     showlegend:true});
 }
 
 function bindInputs(){
-  // removed M0
-  ['alpha','TR','tauRF','T1','T2','phi','fspan','showMag','showReal','showImag','showPhase']
+  ['alpha','TR','tauRF','T1f','T1r','T2','F','kf','phi','fspan','showMag','showReal','showImag','showPhase']
     .forEach(id => document.getElementById(id).addEventListener('input', render));
 }
 
@@ -349,14 +649,86 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   bindEls();
   const ok=await ensurePlotly();
   if(!ok) return;
-  // Initial empty figures, then render
-  Plotly.newPlot(els.plotRF, [], {});
-  Plotly.newPlot(els.plot1, [], {});
-  Plotly.newPlot(els.plot2, [], {});
-  Plotly.newPlot(els.plotEllipse, [], {});
+  Plotly.newPlot(els.plotRF, [], {})
+;try{Plotly.relayout(els.plotRF, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
+  Plotly.newPlot(els.plot1, [], {})
+;try{Plotly.relayout(els.plot1, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
+  Plotly.newPlot(els.plot2, [], {})
+;try{Plotly.relayout(els.plot2, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
+  Plotly.newPlot(els.plotEllipse, [], {})
+;try{Plotly.relayout(els.plotEllipse, {
+  font: {color: '#ffffff'},
+  legend: {font: {color: '#ffffff'}},
+  'xaxis.title.font.color': '#ffffff',
+  'yaxis.title.font.color': '#ffffff',
+  'xaxis.tickfont.color': '#ffffff',
+  'yaxis.tickfont.color': '#ffffff',
+  'xaxis2.title.font.color': '#ffffff',
+  'yaxis2.title.font.color': '#ffffff',
+  'xaxis2.tickfont.color': '#ffffff',
+  'yaxis2.tickfont.color': '#ffffff'
+});}catch(e){};
   bindInputs();
   render();
 });
 </script>
+
+<!-- Reflow charts on resize/orientation for crisper mobile layout -->
+<script>
+(function() {
+  var ids = ['plotRF','plot1','plot2','plotEllipse'];
+  var plots = ids.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  var resizeTO;
+  function doResize(){
+    if (window.Plotly && plots.length) {
+      plots.forEach(function(p){ try { Plotly.Plots.resize(p); } catch(e){} });
+    }
+  }
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTO);
+    resizeTO = setTimeout(doResize, 120);
+  });
+  // Also trigger on DOM ready for initial mobile layout
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(doResize, 50);
+  } else {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(doResize, 50); });
+  }
+})();
+</script>
+
 </body>
 </html>
